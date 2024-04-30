@@ -661,10 +661,12 @@ void InitWindow(int width, int height, const char *title)
 #if defined(SUPPORT_MODULE_RTEXT) && defined(SUPPORT_DEFAULT_FONT)
     if ((CORE.Window.flags & FLAG_WINDOW_HIGHDPI) > 0)
     {
-        // Set default font texture filter for HighDPI (blurry)
-        // RL_TEXTURE_FILTER_LINEAR - tex filter: BILINEAR, no mipmaps
-        rlTextureParameters(GetFontDefault().texture.id, RL_TEXTURE_MIN_FILTER, RL_TEXTURE_FILTER_LINEAR);
-        rlTextureParameters(GetFontDefault().texture.id, RL_TEXTURE_MAG_FILTER, RL_TEXTURE_FILTER_LINEAR);
+        #if !defined(__APPLE__)
+            // Set default font texture filter for HighDPI (blurry)
+            // RL_TEXTURE_FILTER_LINEAR - tex filter: BILINEAR, no mipmaps
+            rlTextureParameters(GetFontDefault().texture.id, RL_TEXTURE_MIN_FILTER, RL_TEXTURE_FILTER_LINEAR);
+            rlTextureParameters(GetFontDefault().texture.id, RL_TEXTURE_MAG_FILTER, RL_TEXTURE_FILTER_LINEAR);
+        #endif
     }
 #endif
 
@@ -766,12 +768,8 @@ int GetScreenHeight(void)
 int GetRenderWidth(void)
 {
     int width = 0;
-#if defined(__APPLE__)
-    Vector2 scale = GetWindowScaleDPI();
-    width = (int)((float)CORE.Window.render.width*scale.x);
-#else
     width = CORE.Window.render.width;
-#endif
+
     return width;
 }
 
@@ -779,12 +777,8 @@ int GetRenderWidth(void)
 int GetRenderHeight(void)
 {
     int height = 0;
-#if defined(__APPLE__)
-    Vector2 scale = GetWindowScaleDPI();
-    height = (int)((float)CORE.Window.render.height*scale.y);
-#else
+
     height = CORE.Window.render.height;
-#endif
     return height;
 }
 
@@ -1117,19 +1111,11 @@ void BeginScissorMode(int x, int y, int width, int height)
 
     rlEnableScissorTest();
 
-#if defined(__APPLE__)
-    if (!CORE.Window.usingFbo)
-    {
-        Vector2 scale = GetWindowScaleDPI();
-        rlScissor((int)(x*scale.x), (int)(GetScreenHeight()*scale.y - (((y + height)*scale.y))), (int)(width*scale.x), (int)(height*scale.y));
-    }
-#else
     if (!CORE.Window.usingFbo && ((CORE.Window.flags & FLAG_WINDOW_HIGHDPI) > 0))
     {
         Vector2 scale = GetWindowScaleDPI();
         rlScissor((int)(x*scale.x), (int)(CORE.Window.currentFbo.height - (y + height)*scale.y), (int)(width*scale.x), (int)(height*scale.y));
     }
-#endif
     else
     {
         rlScissor(x, CORE.Window.currentFbo.height - (y + height), width, height);
@@ -3116,12 +3102,8 @@ void SetupViewport(int width, int height)
     // Set viewport width and height
     // NOTE: We consider render size (scaled) and offset in case black bars are required and
     // render area does not match full display area (this situation is only applicable on fullscreen mode)
-#if defined(__APPLE__)
-    Vector2 scale = GetWindowScaleDPI();
-    rlViewport(CORE.Window.renderOffset.x/2*scale.x, CORE.Window.renderOffset.y/2*scale.y, (CORE.Window.render.width)*scale.x, (CORE.Window.render.height)*scale.y);
-#else
+    // TODO: Test Fullscreen
     rlViewport(CORE.Window.renderOffset.x/2, CORE.Window.renderOffset.y/2, CORE.Window.render.width, CORE.Window.render.height);
-#endif
 
     rlMatrixMode(RL_PROJECTION);        // Switch to projection matrix
     rlLoadIdentity();                   // Reset current matrix (projection)

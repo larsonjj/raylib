@@ -1554,7 +1554,21 @@ int InitPlatform(void)
     // Check window and glContext have been initialized successfully
     if ((platform.window != NULL) && (platform.glContext != NULL))
     {
+
         CORE.Window.ready = true;
+        if ((CORE.Window.flags & FLAG_WINDOW_HIGHDPI) > 0)
+        {
+            // NOTE: On APPLE platforms system should manage window/input scaling and also framebuffer scaling.
+            // Framebuffer scaling should be activated with: glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_TRUE);
+            #if defined(__APPLE__)
+                Vector2 scale = GetWindowScaleDPI();
+                // Screen scaling matrix is required in case desired screen area is different from display area
+                CORE.Window.screenScale = MatrixScale(scale.x, scale.y, 1.0f);
+
+                // Mouse input scaling for the new screen size
+                SetMouseScale(scale.x, scale.y);
+            #endif
+        }
 
         const SDL_DisplayMode *displayMode = SDL_GetCurrentDisplayMode(GetCurrentMonitor());
 
