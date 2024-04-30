@@ -1554,7 +1554,7 @@ RMAPI Matrix MatrixInvert(Matrix mat)
 }
 
 // Get identity matrix
-RMAPI Matrix MatrixIdentity(void)
+RMAPI Matrix RL_MatrixIdentity(void)
 {
     Matrix result = { 1.0f, 0.0f, 0.0f, 0.0f,
                       0.0f, 1.0f, 0.0f, 0.0f,
@@ -1616,7 +1616,7 @@ RMAPI Matrix MatrixSubtract(Matrix left, Matrix right)
 
 // Get two matrix multiplication
 // NOTE: When multiplying matrices... the order matters!
-RMAPI Matrix MatrixMultiply(Matrix left, Matrix right)
+RMAPI Matrix rMatrixMultiply(Matrix left, Matrix right)
 {
     Matrix result = { 0 };
 
@@ -2220,9 +2220,9 @@ RMAPI Quaternion QuaternionCubicHermiteSpline(Quaternion q1, Quaternion outTange
     float t2 = t * t;
     float t3 = t2 * t;
     float h00 = 2 * t3 - 3 * t2 + 1;
-    float h10 = t3 - 2 * t2 + t;    
-    float h01 = -2 * t3 + 3 * t2;   
-    float h11 = t3 - t2;            
+    float h10 = t3 - 2 * t2 + t;
+    float h01 = -2 * t3 + 3 * t2;
+    float h11 = t3 - t2;
 
     Quaternion p0 = QuaternionScale(q1, h00);
     Quaternion m0 = QuaternionScale(outTangent1, h10);

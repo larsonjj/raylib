@@ -609,7 +609,7 @@ void InitWindow(int width, int height, const char *title)
     CORE.Window.screen.width = width;
     CORE.Window.screen.height = height;
     CORE.Window.eventWaiting = false;
-    CORE.Window.screenScale = MatrixIdentity();     // No draw scaling required by default
+    CORE.Window.screenScale = RL_MatrixIdentity();     // No draw scaling required by default
     if ((title != NULL) && (title[0] != 0)) CORE.Window.title = title;
 
     // Initialize global input state
@@ -1209,8 +1209,8 @@ VrStereoConfig LoadVrStereoConfig(VrDeviceInfo device)
         float projOffset = 4.0f*lensShift;      // Scaled to projection space coordinates [-1..1]
         Matrix proj = MatrixPerspective(fovy, aspect, rlGetCullDistanceNear(), rlGetCullDistanceFar());
 
-        config.projection[0] = MatrixMultiply(proj, MatrixTranslate(projOffset, 0.0f, 0.0f));
-        config.projection[1] = MatrixMultiply(proj, MatrixTranslate(-projOffset, 0.0f, 0.0f));
+        config.projection[0] = rMatrixMultiply(proj, MatrixTranslate(projOffset, 0.0f, 0.0f));
+        config.projection[1] = rMatrixMultiply(proj, MatrixTranslate(-projOffset, 0.0f, 0.0f));
 
         // Compute camera transformation matrices
         // NOTE: Camera movement might seem more natural if we model the head
@@ -1441,7 +1441,7 @@ Ray GetScreenToWorldRayEx(Vector2 position, Camera camera, int width, int height
     // Calculate view matrix from camera look at
     Matrix matView = MatrixLookAt(camera.position, camera.target, camera.up);
 
-    Matrix matProj = MatrixIdentity();
+    Matrix matProj = RL_MatrixIdentity();
 
     if (camera.projection == CAMERA_PERSPECTIVE)
     {
@@ -1511,7 +1511,7 @@ Matrix GetCameraMatrix2D(Camera2D camera)
     Matrix matScale = MatrixScale(camera.zoom, camera.zoom, 1.0f);
     Matrix matTranslation = MatrixTranslate(camera.offset.x, camera.offset.y, 0.0f);
 
-    matTransform = MatrixMultiply(MatrixMultiply(matOrigin, MatrixMultiply(matScale, matRotation)), matTranslation);
+    matTransform = rMatrixMultiply(rMatrixMultiply(matOrigin, rMatrixMultiply(matScale, matRotation)), matTranslation);
 
     return matTransform;
 }
@@ -1528,7 +1528,7 @@ Vector2 GetWorldToScreen(Vector3 position, Camera camera)
 Vector2 GetWorldToScreenEx(Vector3 position, Camera camera, int width, int height)
 {
     // Calculate projection matrix (from perspective instead of frustum
-    Matrix matProj = MatrixIdentity();
+    Matrix matProj = RL_MatrixIdentity();
 
     if (camera.projection == CAMERA_PERSPECTIVE)
     {
