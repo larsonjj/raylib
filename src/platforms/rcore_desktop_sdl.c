@@ -50,6 +50,10 @@
 
 #include <SDL3/SDL.h>                // SDL base library (window/rendered, input, timing... functionality)
 
+#if defined(__APPLE__)
+    #include <mach/mach_time.h>
+#endif // OSs
+
 #if defined(GRAPHICS_API_OPENGL_ES2)
     // It seems it does not need to be included to work
     //#include <SDL3/SDL_opengles2.h>
@@ -949,8 +953,14 @@ void SwapScreenBuffer(void)
 // Get elapsed time measure in seconds
 double GetTime(void)
 {
+    #if defined(__APPLE__)
+    unsigned long long int abs_time = mach_absolute_time();
+    double time = (double) (abs_time - CORE.Time.offset) / CORE.Time.base;
+    #else
     uint64_t ms = SDL_GetTicks();    // Elapsed time in milliseconds since SDL_Init()
     double time = (double)ms/1000;
+    #endif
+
     return time;
 }
 
@@ -1629,7 +1639,8 @@ int InitPlatform(void)
     // Initialize timing system
     //----------------------------------------------------------------------------
     // NOTE: No need to call InitTimer(), let SDL manage it internally
-    CORE.Time.previous = GetTime();     // Get time as double
+    // CORE.Time.previous = GetTime();     // Get time as double
+    InitTimer();
 
     #if defined(_WIN32) && defined(SUPPORT_WINMM_HIGHRES_TIMER) && !defined(SUPPORT_BUSY_WAIT_LOOP)
     SDL_SetHint(SDL_HINT_TIMER_RESOLUTION, "1");     // SDL equivalent of timeBeginPeriod() and timeEndPeriod()

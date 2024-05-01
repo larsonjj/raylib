@@ -166,6 +166,7 @@ __declspec(dllimport) int __stdcall WideCharToMultiByte(unsigned int cp, unsigne
 #elif defined(__APPLE__)
     #include <sys/syslimits.h>
     #include <mach-o/dyld.h>
+    #include <mach/mach_time.h>
 #endif // OSs
 
 #define _CRT_INTERNAL_NONSTDC_NAMES  1
@@ -193,6 +194,10 @@ __declspec(dllimport) int __stdcall WideCharToMultiByte(unsigned int cp, unsigne
     #include <unistd.h>             // Required for: getch(), chdir() (POSIX), access()
     #define GETCWD getcwd
     #define CHDIR chdir
+#endif
+
+#if defined(PLATFORM_DESKTOP_SDL)
+    #include <SDL.h>                // Required for: SDL_Delay() [Used in WaitTime()]
 #endif
 
 //----------------------------------------------------------------------------------
@@ -348,6 +353,7 @@ typedef struct CoreData {
         double frame;                       // Time measure for one frame
         double target;                      // Desired time for one frame, if 0 not applied
         unsigned long long int base;        // Base time measure for hi-res timer (PLATFORM_ANDROID, PLATFORM_DRM)
+        unsigned long long int offset;      // Offset time measure for hi-res timer (PLATFORM_SDL_DESKTOP/Apple)
         unsigned int frameCounter;          // Frame counter
 
     } Time;
@@ -1624,7 +1630,7 @@ int GetFPS(void)
         history[index] = fpsFrame/FPS_CAPTURE_FRAMES_COUNT;
         average += history[index];
     }
-
+    // printf("FPS: %f\n", 1.0f/average);
     fps = (int)roundf(1.0f/average);
 #endif
 
@@ -1662,7 +1668,7 @@ void WaitTime(double seconds)
     while (GetTime() < destinationTime) { }
 #else
     #if defined(SUPPORT_PARTIALBUSY_WAIT_LOOP)
-        double sleepSeconds = seconds - seconds*0.05;  // NOTE: We reserve a percentage of the time for busy waiting
+        double sleepSeconds = seconds - seconds*0.07;  // NOTE: We reserve a percentage of the time for busy waiting
     #else
         double sleepSeconds = seconds;
     #endif
@@ -3089,6 +3095,13 @@ void InitTimer(void)
     }
     else TRACELOG(LOG_WARNING, "TIMER: Hi-resolution timer not available");
 #endif
+
+    #if defined(__APPLE__)
+        mach_timebase_info_data_t info;
+        mach_timebase_info(&info);
+        CORE.Time.base = (unsigned long long int)(info.denom * 1e9) / info.numer;
+        CORE.Time.offset = mach_absolute_time();
+    #endif
 
     CORE.Time.previous = GetTime();     // Get time as double
 }
