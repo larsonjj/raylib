@@ -756,13 +756,15 @@ bool IsWindowState(unsigned int flag)
 // Get current screen width
 int GetScreenWidth(void)
 {
-    return CORE.Window.screen.width;
+    Vector2 scale = GetWindowScaleDPI();
+    return CORE.Window.screen.width / scale.x;
 }
 
 // Get current screen height
 int GetScreenHeight(void)
 {
-    return CORE.Window.screen.height;
+    Vector2 scale = GetWindowScaleDPI();
+    return CORE.Window.screen.height / scale.y;
 }
 
 // Get current render width which is equal to screen width*dpi scale
