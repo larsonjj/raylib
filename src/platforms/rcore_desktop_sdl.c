@@ -969,9 +969,14 @@ void SwapScreenBuffer(void)
 // Get elapsed time measure in seconds
 double GetTime(void)
 {
+    // On Apple systems, use high-resolution timer
+    // Based on https://github.com/glfw/glfw/blob/master/src/cocoa_time.c
     #if defined(__APPLE__)
+    mach_timebase_info_data_t info;
+    mach_timebase_info(&info);
+    unsigned long long int frequency = (unsigned long long int)(info.denom * 1e9) / info.numer;
     unsigned long long int abs_time = mach_absolute_time();
-    double time = (double) (abs_time - CORE.Time.offset) / CORE.Time.base;
+    double time = (double) (abs_time - CORE.Time.base) / frequency;
     #else
     uint64_t ms = SDL_GetTicks();    // Elapsed time in milliseconds since SDL_Init()
     double time = (double)ms/1000;

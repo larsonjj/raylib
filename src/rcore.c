@@ -349,7 +349,6 @@ typedef struct CoreData {
         double frame;                       // Time measure for one frame
         double target;                      // Desired time for one frame, if 0 not applied
         unsigned long long int base;        // Base time measure for hi-res timer (PLATFORM_ANDROID, PLATFORM_DRM)
-        unsigned long long int offset;      // Offset time measure for hi-res timer (PLATFORM_SDL_DESKTOP/Apple)
         unsigned int frameCounter;          // Frame counter
 
     } Time;
@@ -3093,10 +3092,7 @@ void InitTimer(void)
 #endif
 
     #if defined(__APPLE__)
-        mach_timebase_info_data_t info;
-        mach_timebase_info(&info);
-        CORE.Time.base = (unsigned long long int)(info.denom * 1e9) / info.numer;
-        CORE.Time.offset = mach_absolute_time();
+        CORE.Time.base = mach_absolute_time();
     #endif
 
     CORE.Time.previous = GetTime();     // Get time as double
