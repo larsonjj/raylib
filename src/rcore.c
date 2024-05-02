@@ -196,10 +196,6 @@ __declspec(dllimport) int __stdcall WideCharToMultiByte(unsigned int cp, unsigne
     #define CHDIR chdir
 #endif
 
-#if defined(PLATFORM_DESKTOP_SDL)
-    #include <SDL.h>                // Required for: SDL_Delay() [Used in WaitTime()]
-#endif
-
 //----------------------------------------------------------------------------------
 // Defines and Macros
 //----------------------------------------------------------------------------------

@@ -1561,24 +1561,23 @@ int InitPlatform(void)
     // Init OpenGL context
     platform.glContext = SDL_GL_CreateContext(platform.window);
 
+    if ((CORE.Window.flags & FLAG_WINDOW_HIGHDPI) > 0)
+    {
+        // NOTE: On APPLE platforms, system should manage window/input scaling and also framebuffer scaling.
+        #if defined(__APPLE__)
+            Vector2 scale = GetWindowScaleDPI();
+            // Screen scaling matrix is required in case desired screen area is different from display area
+            CORE.Window.screenScale = MatrixScale(scale.x, scale.y, 1.0f);
+
+            // Mouse input scaling for the new screen size
+            SetMouseScale(scale.x, scale.y);
+        #endif
+    }
+
     // Check window and glContext have been initialized successfully
     if ((platform.window != NULL) && (platform.glContext != NULL))
     {
-
         CORE.Window.ready = true;
-        if ((CORE.Window.flags & FLAG_WINDOW_HIGHDPI) > 0)
-        {
-            // NOTE: On APPLE platforms system should manage window/input scaling and also framebuffer scaling.
-            // Framebuffer scaling should be activated with: glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_TRUE);
-            #if defined(__APPLE__)
-                Vector2 scale = GetWindowScaleDPI();
-                // Screen scaling matrix is required in case desired screen area is different from display area
-                CORE.Window.screenScale = MatrixScale(scale.x, scale.y, 1.0f);
-
-                // Mouse input scaling for the new screen size
-                SetMouseScale(scale.x, scale.y);
-            #endif
-        }
 
         const SDL_DisplayMode *displayMode = SDL_GetCurrentDisplayMode(GetCurrentMonitor());
 
@@ -1638,8 +1637,6 @@ int InitPlatform(void)
 
     // Initialize timing system
     //----------------------------------------------------------------------------
-    // NOTE: No need to call InitTimer(), let SDL manage it internally
-    // CORE.Time.previous = GetTime();     // Get time as double
     InitTimer();
 
     #if defined(_WIN32) && defined(SUPPORT_WINMM_HIGHRES_TIMER) && !defined(SUPPORT_BUSY_WAIT_LOOP)
