@@ -347,7 +347,10 @@ void SetWindowState(unsigned int flags)
 
     if (flags & FLAG_VSYNC_HINT)
     {
-        SDL_GL_SetSwapInterval(1);
+        int interval = SDL_GL_SetSwapInterval(1);
+        if (interval < 0) {
+            TRACELOG(LOG_WARNING, "SDL: Failed to set VSync - %s", SDL_GetError());
+        }
     }
     if (flags & FLAG_FULLSCREEN_MODE)
     {
@@ -440,7 +443,10 @@ void ClearWindowState(unsigned int flags)
 
     if (flags & FLAG_VSYNC_HINT)
     {
-        SDL_GL_SetSwapInterval(0);
+        int interval = SDL_GL_SetSwapInterval(0);
+        if (interval < 0) {
+            TRACELOG(LOG_WARNING, "SDL: Failed to set VSync - %s", SDL_GetError());
+        }
     }
     if (flags & FLAG_FULLSCREEN_MODE)
     {
@@ -1565,11 +1571,6 @@ int InitPlatform(void)
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
     }
 
-    if (CORE.Window.flags & FLAG_VSYNC_HINT)
-    {
-        SDL_GL_SetSwapInterval(1);
-    }
-
     if (CORE.Window.flags & FLAG_MSAA_4X_HINT)
     {
         SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
@@ -1581,6 +1582,15 @@ int InitPlatform(void)
 
     // Init OpenGL context
     platform.glContext = SDL_GL_CreateContext(platform.window);
+
+    if (CORE.Window.flags & FLAG_VSYNC_HINT)
+    {
+        int interval = SDL_GL_SetSwapInterval(1);
+        if (interval < 0) {
+            TRACELOG(LOG_WARNING, "SDL: Failed to set VSync - %s", SDL_GetError());
+        }
+
+    }
 
     if ((CORE.Window.flags & FLAG_WINDOW_HIGHDPI) > 0)
     {
