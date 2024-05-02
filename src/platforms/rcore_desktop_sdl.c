@@ -1583,15 +1583,6 @@ int InitPlatform(void)
     // Init OpenGL context
     platform.glContext = SDL_GL_CreateContext(platform.window);
 
-    if (CORE.Window.flags & FLAG_VSYNC_HINT)
-    {
-        int interval = SDL_GL_SetSwapInterval(1);
-        if (interval < 0) {
-            TRACELOG(LOG_WARNING, "SDL: Failed to set VSync - %s", SDL_GetError());
-        }
-
-    }
-
     if ((CORE.Window.flags & FLAG_WINDOW_HIGHDPI) > 0)
     {
         // NOTE: On APPLE platforms, system should manage window/input scaling and also framebuffer scaling.
@@ -1608,6 +1599,14 @@ int InitPlatform(void)
     // Check window and glContext have been initialized successfully
     if ((platform.window != NULL) && (platform.glContext != NULL))
     {
+        if (CORE.Window.flags & FLAG_VSYNC_HINT)
+        {
+            int interval = SDL_GL_SetSwapInterval(1);
+            if (interval < 0) {
+                TRACELOG(LOG_WARNING, "SDL: Failed to set VSync - %s", SDL_GetError());
+            }
+        }
+
         CORE.Window.ready = true;
 
         const SDL_DisplayMode *displayMode = SDL_GetCurrentDisplayMode(GetCurrentMonitor());
