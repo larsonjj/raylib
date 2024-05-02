@@ -1616,7 +1616,7 @@ RMAPI Matrix MatrixSubtract(Matrix left, Matrix right)
 
 // Get two matrix multiplication
 // NOTE: When multiplying matrices... the order matters!
-RMAPI Matrix rMatrixMultiply(Matrix left, Matrix right)
+RMAPI Matrix RL_MatrixMultiply(Matrix left, Matrix right)
 {
     Matrix result = { 0 };
 

@@ -1201,8 +1201,8 @@ VrStereoConfig LoadVrStereoConfig(VrDeviceInfo device)
         float projOffset = 4.0f*lensShift;      // Scaled to projection space coordinates [-1..1]
         Matrix proj = MatrixPerspective(fovy, aspect, rlGetCullDistanceNear(), rlGetCullDistanceFar());
 
-        config.projection[0] = rMatrixMultiply(proj, MatrixTranslate(projOffset, 0.0f, 0.0f));
-        config.projection[1] = rMatrixMultiply(proj, MatrixTranslate(-projOffset, 0.0f, 0.0f));
+        config.projection[0] = RL_MatrixMultiply(proj, MatrixTranslate(projOffset, 0.0f, 0.0f));
+        config.projection[1] = RL_MatrixMultiply(proj, MatrixTranslate(-projOffset, 0.0f, 0.0f));
 
         // Compute camera transformation matrices
         // NOTE: Camera movement might seem more natural if we model the head
@@ -1503,7 +1503,7 @@ Matrix GetCameraMatrix2D(Camera2D camera)
     Matrix matScale = MatrixScale(camera.zoom, camera.zoom, 1.0f);
     Matrix matTranslation = MatrixTranslate(camera.offset.x, camera.offset.y, 0.0f);
 
-    matTransform = rMatrixMultiply(rMatrixMultiply(matOrigin, rMatrixMultiply(matScale, matRotation)), matTranslation);
+    matTransform = RL_MatrixMultiply(RL_MatrixMultiply(matOrigin, RL_MatrixMultiply(matScale, matRotation)), matTranslation);
 
     return matTransform;
 }
@@ -1630,7 +1630,7 @@ int GetFPS(void)
         history[index] = fpsFrame/FPS_CAPTURE_FRAMES_COUNT;
         average += history[index];
     }
-    // printf("FPS: %f\n", 1.0f/average);
+
     fps = (int)roundf(1.0f/average);
 #endif
 
@@ -1668,7 +1668,7 @@ void WaitTime(double seconds)
     while (GetTime() < destinationTime) { }
 #else
     #if defined(SUPPORT_PARTIALBUSY_WAIT_LOOP)
-        double sleepSeconds = seconds - seconds*0.07;  // NOTE: We reserve a percentage of the time for busy waiting
+        double sleepSeconds = seconds - seconds*0.05;  // NOTE: We reserve a percentage of the time for busy waiting
     #else
         double sleepSeconds = seconds;
     #endif
