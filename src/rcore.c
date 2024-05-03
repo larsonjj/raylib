@@ -755,23 +755,35 @@ bool IsWindowState(unsigned int flag)
 // Get current screen width
 int GetScreenWidth(void)
 {
+#if defined(PLATFORM_DESKTOP_SDL)
     Vector2 scale = GetWindowScaleDPI();
     return CORE.Window.screen.width / scale.x;
+#else
+    return CORE.Window.screen.width;
+#endif
 }
 
 // Get current screen height
 int GetScreenHeight(void)
 {
+#if defined(PLATFORM_DESKTOP_SDL)
     Vector2 scale = GetWindowScaleDPI();
     return CORE.Window.screen.height / scale.y;
+#else
+    return CORE.Window.screen.height;
+#endif
 }
 
 // Get current render width which is equal to screen width*dpi scale
 int GetRenderWidth(void)
 {
     int width = 0;
+#if defined(__APPLE__) && !defined(PLATFORM_DESKTOP_SDL)
+    Vector2 scale = GetWindowScaleDPI();
+    width = (int)((float)CORE.Window.render.width*scale.x);
+#else
     width = CORE.Window.render.width;
-
+#endif
     return width;
 }
 
@@ -779,8 +791,12 @@ int GetRenderWidth(void)
 int GetRenderHeight(void)
 {
     int height = 0;
-
+#if defined(__APPLE__) && !defined(PLATFORM_DESKTOP_SDL)
+    Vector2 scale = GetWindowScaleDPI();
+    height = (int)((float)CORE.Window.render.height*scale.y);
+#else
     height = CORE.Window.render.height;
+#endif
     return height;
 }
 
@@ -1113,11 +1129,20 @@ void BeginScissorMode(int x, int y, int width, int height)
 
     rlEnableScissorTest();
 
+#if defined(__APPLE__) && !defined(PLATFORM_DESKTOP_SDL)
+    if (!CORE.Window.usingFbo)
+    {
+        Vector2 scale = GetWindowScaleDPI();
+        rlScissor((int)(x*scale.x), (int)(GetScreenHeight()*scale.y - (((y + height)*scale.y))), (int)(width*scale.x), (int)(height*scale.y));
+    }
+#else
+
     if (!CORE.Window.usingFbo && ((CORE.Window.flags & FLAG_WINDOW_HIGHDPI) > 0))
     {
         Vector2 scale = GetWindowScaleDPI();
         rlScissor((int)(x*scale.x), (int)(CORE.Window.currentFbo.height - (y + height)*scale.y), (int)(width*scale.x), (int)(height*scale.y));
     }
+#endif
     else
     {
         rlScissor(x, CORE.Window.currentFbo.height - (y + height), width, height);
