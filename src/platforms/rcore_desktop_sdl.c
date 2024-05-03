@@ -49,14 +49,8 @@
 **********************************************************************************************/
 
 //----------------------------------------------------------------------------------
-// SDL Includes
+// Includes
 //----------------------------------------------------------------------------------
-
-// NOTE: Include SDL libraries in this section to avoid function naming conflicts between SDL and raylib
-
-#define MatrixIdentity SDL_MatrixIdentity
-#define MatrixMultiply SDL_MatrixMultiply
-
 #include <SDL3/SDL.h>                // SDL base library (window/rendered, input, timing... functionality)
 
 #if defined(GRAPHICS_API_OPENGL_ES2)
@@ -65,17 +59,6 @@
 #else
     #include <SDL3/SDL_opengl.h>     // SDL OpenGL functionality (if required, instead of internal renderer)
 #endif
-
-#undef MatrixIdentity
-#undef MatrixMultiply
-
-//----------------------------------------------------------------------------------
-// Non-SDL Includes
-//----------------------------------------------------------------------------------
-
-#if defined(__APPLE__)
-    #include <mach/mach_time.h>
-#endif // OSs
 
 //----------------------------------------------------------------------------------
 // Types and Structures Definition
