@@ -1643,23 +1643,7 @@ int InitPlatform(void)
     // Initialize timing system
     //----------------------------------------------------------------------------
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__EMSCRIPTEN__)
-    struct timespec now = { 0 };
-
-    if (clock_gettime(CLOCK_MONOTONIC, &now) == 0)  // Success
-    {
-        CORE.Time.base = (unsigned long long int)now.tv_sec*1000000000LLU + (unsigned long long int)now.tv_nsec;
-    }
-    else TRACELOG(LOG_WARNING, "TIMER: Hi-resolution timer not available");
-#endif
-
-#if defined(__APPLE__)
-    CORE.Time.base = mach_absolute_time();
-#endif
-
-#if defined(_WIN32)
     CORE.Time.base = SDL_GetPerformanceCounter();
-#endif
 
     CORE.Time.previous = GetTime();     // Get time as double
     //----------------------------------------------------------------------------
