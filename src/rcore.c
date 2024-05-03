@@ -166,7 +166,6 @@ __declspec(dllimport) int __stdcall WideCharToMultiByte(unsigned int cp, unsigne
 #elif defined(__APPLE__)
     #include <sys/syslimits.h>
     #include <mach-o/dyld.h>
-    #include <mach/mach_time.h>
 #endif // OSs
 
 #define _CRT_INTERNAL_NONSTDC_NAMES  1
@@ -3092,10 +3091,6 @@ void InitTimer(void)
     }
     else TRACELOG(LOG_WARNING, "TIMER: Hi-resolution timer not available");
 #endif
-
-    #if defined(__APPLE__)
-        CORE.Time.base = mach_absolute_time();
-    #endif
 
     CORE.Time.previous = GetTime();     // Get time as double
 }

@@ -975,18 +975,7 @@ void SwapScreenBuffer(void)
 // Get elapsed time measure in seconds
 double GetTime(void)
 {
-    // On Apple systems, use high-resolution timer
-    // Based on https://github.com/glfw/glfw/blob/master/src/cocoa_time.c
-    #if defined(__APPLE__)
-    mach_timebase_info_data_t info;
-    mach_timebase_info(&info);
-    unsigned long long int frequency = (unsigned long long int)(info.denom * 1e9) / info.numer;
-    unsigned long long int abs_time = mach_absolute_time();
-    double time = (double) (abs_time - CORE.Time.base) / frequency;
-    #else
-    uint64_t ms = SDL_GetTicks();    // Elapsed time in milliseconds since SDL_Init()
-    double time = (double)ms/1000;
-    #endif
+    double time = (double)(SDL_GetPerformanceCounter() - CORE.Time.base) / (double)SDL_GetPerformanceFrequency();
 
     return time;
 }
@@ -1599,6 +1588,9 @@ int InitPlatform(void)
     // Check window and glContext have been initialized successfully
     if ((platform.window != NULL) && (platform.glContext != NULL))
     {
+        // Initially set VSync to off
+        int interval = SDL_GL_SetSwapInterval(0);
+
         if (CORE.Window.flags & FLAG_VSYNC_HINT)
         {
             int interval = SDL_GL_SetSwapInterval(1);
@@ -1667,11 +1659,26 @@ int InitPlatform(void)
 
     // Initialize timing system
     //----------------------------------------------------------------------------
-    InitTimer();
 
-    #if defined(_WIN32) && defined(SUPPORT_WINMM_HIGHRES_TIMER) && !defined(SUPPORT_BUSY_WAIT_LOOP)
-    SDL_SetHint(SDL_HINT_TIMER_RESOLUTION, "1");     // SDL equivalent of timeBeginPeriod() and timeEndPeriod()
-    #endif
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__EMSCRIPTEN__)
+    struct timespec now = { 0 };
+
+    if (clock_gettime(CLOCK_MONOTONIC, &now) == 0)  // Success
+    {
+        CORE.Time.base = (unsigned long long int)now.tv_sec*1000000000LLU + (unsigned long long int)now.tv_nsec;
+    }
+    else TRACELOG(LOG_WARNING, "TIMER: Hi-resolution timer not available");
+#endif
+
+#if defined(__APPLE__)
+    CORE.Time.base = mach_absolute_time();
+#endif
+
+#if defined(_WIN32)
+    CORE.Time.base = SDL_GetPerformanceCounter();
+#endif
+
+    CORE.Time.previous = GetTime();     // Get time as double
     //----------------------------------------------------------------------------
 
     // Initialize storage system
