@@ -48,13 +48,13 @@
 *
 **********************************************************************************************/
 
-#include "SDL.h"                // SDL base library (window/rendered, input, timing... functionality)
+#include <SDL3/SDL.h>                // SDL base library (window/rendered, input, timing... functionality)
 
 #if defined(GRAPHICS_API_OPENGL_ES2)
     // It seems it does not need to be included to work
-    //#include "SDL_opengles2.h"
+    //#include <SDL3/SDL_opengles2.h>
 #else
-    #include "SDL_opengl.h"     // SDL OpenGL functionality (if required, instead of internal renderer)
+    #include <SDL3/SDL_opengl.h>     // SDL OpenGL functionality (if required, instead of internal renderer)
 #endif
 
 //----------------------------------------------------------------------------------
@@ -228,6 +228,13 @@ void ClosePlatform(void);                                    // Close platform
 
 static KeyboardKey ConvertScancodeToKey(SDL_Scancode sdlScancode);  // Help convert SDL scancodes to raylib key
 
+// SDL_surface.h migration functions from SDL2 to SDL3
+// Link: https://github.com/libsdl-org/SDL/blob/main/docs/README-migration.md#sdl_surfaceh
+SDL_Surface *SDL_CreateRGBSurface(Uint32 flags, int width, int height, int depth, Uint32 Rmask, Uint32 Gmask, Uint32 Bmask, Uint32 Amask);
+SDL_Surface *SDL_CreateRGBSurfaceWithFormat(Uint32 flags, int width, int height, int depth, Uint32 format);
+SDL_Surface *SDL_CreateRGBSurfaceFrom(void *pixels, int width, int height, int depth, int pitch, Uint32 Rmask, Uint32 Gmask, Uint32 Bmask, Uint32 Amask);
+SDL_Surface *SDL_CreateRGBSurfaceWithFormatFrom(void *pixels, int width, int height, int depth, int pitch, Uint32 format);
+
 //----------------------------------------------------------------------------------
 // Module Functions Declaration
 //----------------------------------------------------------------------------------
@@ -247,8 +254,11 @@ bool WindowShouldClose(void)
 // Toggle fullscreen mode
 void ToggleFullscreen(void)
 {
-    const int monitor = SDL_GetWindowDisplayIndex(platform.window);
-    const int monitorCount = SDL_GetNumVideoDisplays();
+    const int monitor = SDL_GetDisplayForWindow(platform.window);
+    int count = 0;
+    SDL_DisplayID *displays = SDL_GetDisplays(&count);
+    int monitorCount = count;
+
     if ((monitor >= 0) && (monitor < monitorCount))
     {
         if ((CORE.Window.flags & FLAG_FULLSCREEN_MODE) > 0)
@@ -270,8 +280,10 @@ void ToggleFullscreen(void)
 // Toggle borderless windowed mode
 void ToggleBorderlessWindowed(void)
 {
-    const int monitor = SDL_GetWindowDisplayIndex(platform.window);
-    const int monitorCount = SDL_GetNumVideoDisplays();
+    const int monitor = SDL_GetDisplayForWindow(platform.window);
+    int count = 0;
+    SDL_DisplayID *displays = SDL_GetDisplays(&count);
+    const int monitorCount = count;
     if ((monitor >= 0) && (monitor < monitorCount))
     {
         if ((CORE.Window.flags & FLAG_BORDERLESS_WINDOWED_MODE) > 0)
@@ -281,7 +293,7 @@ void ToggleBorderlessWindowed(void)
         }
         else
         {
-            SDL_SetWindowFullscreen(platform.window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+            SDL_SetWindowFullscreen(platform.window, 1);
             CORE.Window.flags |= FLAG_BORDERLESS_WINDOWED_MODE;
         }
     }
@@ -315,12 +327,17 @@ void SetWindowState(unsigned int flags)
 
     if (flags & FLAG_VSYNC_HINT)
     {
-        SDL_GL_SetSwapInterval(1);
+        int interval = SDL_GL_SetSwapInterval(1);
+        if (interval < 0) {
+            TRACELOG(LOG_WARNING, "SDL: Failed to set VSync - %s", SDL_GetError());
+        }
     }
     if (flags & FLAG_FULLSCREEN_MODE)
     {
-        const int monitor = SDL_GetWindowDisplayIndex(platform.window);
-        const int monitorCount = SDL_GetNumVideoDisplays();
+        const int monitor = SDL_GetDisplayForWindow(platform.window);
+        int count = 0;
+        SDL_DisplayID *displays = SDL_GetDisplays(&count);
+        const int monitorCount = count;
         if ((monitor >= 0) && (monitor < monitorCount))
         {
             SDL_SetWindowFullscreen(platform.window, SDL_WINDOW_FULLSCREEN);
@@ -378,11 +395,13 @@ void SetWindowState(unsigned int flags)
     }
     if (flags & FLAG_BORDERLESS_WINDOWED_MODE)
     {
-        const int monitor = SDL_GetWindowDisplayIndex(platform.window);
-        const int monitorCount = SDL_GetNumVideoDisplays();
+        const int monitor = SDL_GetDisplayForWindow(platform.window);
+        int count = 0;
+        SDL_DisplayID *displays = SDL_GetDisplays(&count);
+        const int monitorCount = count;
         if ((monitor >= 0) && (monitor < monitorCount))
         {
-            SDL_SetWindowFullscreen(platform.window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+            SDL_SetWindowFullscreen(platform.window, 1);
         }
         else TRACELOG(LOG_WARNING, "SDL: Failed to find selected monitor");
     }
@@ -404,7 +423,10 @@ void ClearWindowState(unsigned int flags)
 
     if (flags & FLAG_VSYNC_HINT)
     {
-        SDL_GL_SetSwapInterval(0);
+        int interval = SDL_GL_SetSwapInterval(0);
+        if (interval < 0) {
+            TRACELOG(LOG_WARNING, "SDL: Failed to set VSync - %s", SDL_GetError());
+        }
     }
     if (flags & FLAG_FULLSCREEN_MODE)
     {
@@ -562,7 +584,7 @@ void SetWindowIcon(Image image)
     if (iconSurface)
     {
         SDL_SetWindowIcon(platform.window, iconSurface);
-        SDL_FreeSurface(iconSurface);
+        SDL_DestroySurface(iconSurface);
     }
 }
 
@@ -592,7 +614,9 @@ void SetWindowPosition(int x, int y)
 // Set monitor for the current window
 void SetWindowMonitor(int monitor)
 {
-    const int monitorCount = SDL_GetNumVideoDisplays();
+    int count = 0;
+    SDL_DisplayID *displays = SDL_GetDisplays(&count);
+    const int monitorCount = count;
     if ((monitor >= 0) && (monitor < monitorCount))
     {
         // NOTE:
@@ -692,7 +716,9 @@ int GetMonitorCount(void)
 {
     int monitorCount = 0;
 
-    monitorCount = SDL_GetNumVideoDisplays();
+    int count = 0;
+    SDL_DisplayID *displays = SDL_GetDisplays(&count);
+    monitorCount = count;
 
     return monitorCount;
 }
@@ -702,7 +728,7 @@ int GetCurrentMonitor(void)
 {
     int currentMonitor = 0;
 
-    currentMonitor = SDL_GetWindowDisplayIndex(platform.window);
+    currentMonitor = SDL_GetDisplayForWindow(platform.window);
 
     return currentMonitor;
 }
@@ -710,7 +736,9 @@ int GetCurrentMonitor(void)
 // Get selected monitor position
 Vector2 GetMonitorPosition(int monitor)
 {
-    const int monitorCount = SDL_GetNumVideoDisplays();
+    int count = 0;
+    SDL_DisplayID *displays = SDL_GetDisplays(&count);
+    const int monitorCount = count;
     if ((monitor >= 0) && (monitor < monitorCount))
     {
         SDL_Rect displayBounds;
@@ -729,12 +757,13 @@ int GetMonitorWidth(int monitor)
 {
     int width = 0;
 
-    const int monitorCount = SDL_GetNumVideoDisplays();
+    int count = 0;
+    SDL_DisplayID *displays = SDL_GetDisplays(&count);
+    const int monitorCount = count;
     if ((monitor >= 0) && (monitor < monitorCount))
     {
-        SDL_DisplayMode mode;
-        SDL_GetCurrentDisplayMode(monitor, &mode);
-        width = mode.w;
+        const SDL_DisplayMode *mode = SDL_GetCurrentDisplayMode(monitor);
+        width = mode->w;
     }
     else TRACELOG(LOG_WARNING, "SDL: Failed to find selected monitor");
 
@@ -746,12 +775,13 @@ int GetMonitorHeight(int monitor)
 {
     int height = 0;
 
-    const int monitorCount = SDL_GetNumVideoDisplays();
+    int count = 0;
+    SDL_DisplayID *displays = SDL_GetDisplays(&count);
+    const int monitorCount = count;
     if ((monitor >= 0) && (monitor < monitorCount))
     {
-        SDL_DisplayMode mode;
-        SDL_GetCurrentDisplayMode(monitor, &mode);
-        height = mode.h;
+        const SDL_DisplayMode *mode = SDL_GetCurrentDisplayMode(monitor);
+        height = mode->h;
     }
     else TRACELOG(LOG_WARNING, "SDL: Failed to find selected monitor");
 
@@ -763,15 +793,22 @@ int GetMonitorPhysicalWidth(int monitor)
 {
     int width = 0;
 
-    const int monitorCount = SDL_GetNumVideoDisplays();
+    int count = 0;
+    SDL_DisplayID *displays = SDL_GetDisplays(&count);
+    const int monitorCount = count;
     if ((monitor >= 0) && (monitor < monitorCount))
     {
         float ddpi = 0.0f;
-        SDL_GetDisplayDPI(monitor, &ddpi, NULL, NULL);
-        SDL_DisplayMode mode;
-        SDL_GetCurrentDisplayMode(monitor, &mode);
+        float scale = SDL_GetWindowDisplayScale(platform.window);
+
+        // Multiply scale by 96 according to SDL3 migration guide
+        // Link: https://github.com/libsdl-org/SDL/blob/main/docs/README-migration.md#sdl_videoh
+        // TODO: Use 160 for mobile platforms (Android/iOS)
+        ddpi = 96.0f*scale;
+
+        const SDL_DisplayMode *mode = SDL_GetCurrentDisplayMode(monitor);
         // Calculate size on inches, then convert to millimeter
-        if (ddpi > 0.0f) width = (mode.w/ddpi)*25.4f;
+        if (ddpi > 0.0f) width = (mode->w/ddpi)*25.4f;
     }
     else TRACELOG(LOG_WARNING, "SDL: Failed to find selected monitor");
 
@@ -783,15 +820,22 @@ int GetMonitorPhysicalHeight(int monitor)
 {
     int height = 0;
 
-    const int monitorCount = SDL_GetNumVideoDisplays();
+    int count = 0;
+    SDL_DisplayID *displays = SDL_GetDisplays(&count);
+    const int monitorCount = count;
     if ((monitor >= 0) && (monitor < monitorCount))
     {
         float ddpi = 0.0f;
-        SDL_GetDisplayDPI(monitor, &ddpi, NULL, NULL);
-        SDL_DisplayMode mode;
-        SDL_GetCurrentDisplayMode(monitor, &mode);
+        float scale = SDL_GetWindowDisplayScale(platform.window);
+
+        // Multiply scale by 96 according to SDL3 migration guide
+        // Link: https://github.com/libsdl-org/SDL/blob/main/docs/README-migration.md#sdl_videoh
+        // TODO: Use 160 for mobile platforms (Android/iOS)
+        ddpi = 96.0f*scale;
+
+        const SDL_DisplayMode *mode = SDL_GetCurrentDisplayMode(monitor);
         // Calculate size on inches, then convert to millimeter
-        if (ddpi > 0.0f) height = (mode.h/ddpi)*25.4f;
+        if (ddpi > 0.0f) height = (mode->h/ddpi)*25.4f;
     }
     else TRACELOG(LOG_WARNING, "SDL: Failed to find selected monitor");
 
@@ -803,12 +847,13 @@ int GetMonitorRefreshRate(int monitor)
 {
     int refresh = 0;
 
-    const int monitorCount = SDL_GetNumVideoDisplays();
+    int count = 0;
+    SDL_DisplayID *displays = SDL_GetDisplays(&count);
+    const int monitorCount = count;
     if ((monitor >= 0) && (monitor < monitorCount))
     {
-        SDL_DisplayMode mode;
-        SDL_GetCurrentDisplayMode(monitor, &mode);
-        refresh = mode.refresh_rate;
+        const SDL_DisplayMode *mode = SDL_GetCurrentDisplayMode(monitor);
+        refresh = mode->refresh_rate;
     }
     else TRACELOG(LOG_WARNING, "SDL: Failed to find selected monitor");
 
@@ -818,7 +863,9 @@ int GetMonitorRefreshRate(int monitor)
 // Get the human-readable, UTF-8 encoded name of the selected monitor
 const char *GetMonitorName(int monitor)
 {
-    const int monitorCount = SDL_GetNumVideoDisplays();
+    int count = 0;
+    SDL_DisplayID *displays = SDL_GetDisplays(&count);
+    const int monitorCount = count;
 
     if ((monitor >= 0) && (monitor < monitorCount)) return SDL_GetDisplayName(monitor);
     else TRACELOG(LOG_WARNING, "SDL: Failed to find selected monitor");
@@ -840,12 +887,9 @@ Vector2 GetWindowPosition(void)
 // Get window scale DPI factor for current monitor
 Vector2 GetWindowScaleDPI(void)
 {
-    Vector2 scale = { 1.0f, 1.0f };
-
-    // NOTE: SDL_GetWindowDisplayScale was only added on SDL3
-    //       see https://wiki.libsdl.org/SDL3/SDL_GetWindowDisplayScale
-    // TODO: Implement the window scale factor calculation manually.
-    TRACELOG(LOG_WARNING, "GetWindowScaleDPI() not implemented on target platform");
+    float displayScale = SDL_GetWindowDisplayScale(platform.window);
+    if (displayScale <= 0.0f) displayScale = 1.0f;
+    Vector2 scale = { displayScale, displayScale };
 
     return scale;
 }
@@ -866,7 +910,7 @@ const char *GetClipboardText(void)
 // Show mouse cursor
 void ShowCursor(void)
 {
-    SDL_ShowCursor(SDL_ENABLE);
+    SDL_ShowCursor();
 
     CORE.Input.Mouse.cursorHidden = false;
 }
@@ -874,7 +918,7 @@ void ShowCursor(void)
 // Hides mouse cursor
 void HideCursor(void)
 {
-    SDL_ShowCursor(SDL_DISABLE);
+    SDL_HideCursor();
 
     CORE.Input.Mouse.cursorHidden = true;
 }
@@ -883,7 +927,7 @@ void HideCursor(void)
 void EnableCursor(void)
 {
     SDL_SetRelativeMouseMode(SDL_FALSE);
-    SDL_ShowCursor(SDL_ENABLE);
+    SDL_ShowCursor();
 
     platform.cursorRelative = false;
     CORE.Input.Mouse.cursorHidden = false;
@@ -911,8 +955,8 @@ void SwapScreenBuffer(void)
 // Get elapsed time measure in seconds
 double GetTime(void)
 {
-    unsigned int ms = SDL_GetTicks();    // Elapsed time in milliseconds since SDL_Init()
-    double time = (double)ms/1000;
+    double time = (double)(SDL_GetPerformanceCounter() - CORE.Time.base) / (double)SDL_GetPerformanceFrequency();
+
     return time;
 }
 
@@ -935,7 +979,7 @@ void OpenURL(const char *url)
 // Set internal gamepad mappings
 int SetGamepadMappings(const char *mappings)
 {
-    return SDL_GameControllerAddMapping(mappings);
+    return SDL_AddGamepadMapping(mappings);
 }
 
 // Set gamepad vibration
@@ -949,7 +993,7 @@ void SetGamepadVibration(int gamepad, float leftMotor, float rightMotor)
 
     if (IsGamepadAvailable(gamepad))
     {
-        SDL_JoystickRumble(platform.gamepad[gamepad], (Uint16)(leftMotor*65535.0f), (Uint16)(rightMotor*65535.0f), (Uint32)(MAX_GAMEPAD_VIBRATION_TIME*1000.0f));
+        SDL_RumbleJoystick(platform.gamepad[gamepad], (Uint16)(leftMotor*65535.0f), (Uint16)(rightMotor*65535.0f), (Uint32)(MAX_GAMEPAD_VIBRATION_TIME*1000.0f));
     }
 }
 
@@ -973,11 +1017,13 @@ void SetMouseCursor(int cursor)
 
 static void UpdateTouchPointsSDL(SDL_TouchFingerEvent event)
 {
-    CORE.Input.Touch.pointCount = SDL_GetNumTouchFingers(event.touchId);
+    int count = 0;
+    SDL_Finger **fingers = SDL_GetTouchFingers(event.touchID, &count);
+    CORE.Input.Touch.pointCount = count;
 
     for (int i = 0; i < CORE.Input.Touch.pointCount; i++)
     {
-        SDL_Finger *finger = SDL_GetTouchFinger(event.touchId, i);
+        SDL_Finger *finger = fingers[i];
         CORE.Input.Touch.pointId[i] = finger->id;
         CORE.Input.Touch.position[i].x = finger->x*CORE.Window.screen.width;
         CORE.Input.Touch.position[i].y = finger->y*CORE.Window.screen.height;
@@ -985,6 +1031,7 @@ static void UpdateTouchPointsSDL(SDL_TouchFingerEvent event)
     }
 
     for (int i = CORE.Input.Touch.pointCount; i < MAX_TOUCH_POINTS; i++) CORE.Input.Touch.currentTouchState[i] = 0;
+    SDL_free(fingers);
 }
 
 // Register all input events
@@ -1009,7 +1056,10 @@ void PollInputEvents(void)
     else CORE.Input.Mouse.previousPosition = CORE.Input.Mouse.currentPosition;
 
     // Reset last gamepad button/axis registered state
-    for (int i = 0; (i < SDL_NumJoysticks()) && (i < MAX_GAMEPADS); i++)
+    int count = 0;
+    SDL_JoystickID *joysticks = SDL_GetJoysticks(&count);
+    SDL_free(joysticks);
+    for (int i = 0; (i < count) && (i < MAX_GAMEPADS); i++)
     {
         // Check if gamepad is available
         if (CORE.Input.Gamepad.ready[i])
@@ -1062,9 +1112,9 @@ void PollInputEvents(void)
         // All input events can be processed after polling
         switch (event.type)
         {
-            case SDL_QUIT: CORE.Window.shouldClose = true; break;
+            case SDL_EVENT_QUIT: CORE.Window.shouldClose = true; break;
 
-            case SDL_DROPFILE:      // Dropped file
+            case SDL_EVENT_DROP_FILE:      // Dropped file
             {
                 if (CORE.Window.dropFileCount == 0)
                 {
@@ -1074,16 +1124,14 @@ void PollInputEvents(void)
                     CORE.Window.dropFilepaths = (char **)RL_CALLOC(1024, sizeof(char *));
 
                     CORE.Window.dropFilepaths[CORE.Window.dropFileCount] = (char *)RL_CALLOC(MAX_FILEPATH_LENGTH, sizeof(char));
-                    strcpy(CORE.Window.dropFilepaths[CORE.Window.dropFileCount], event.drop.file);
-                    SDL_free(event.drop.file);
+                    strcpy(CORE.Window.dropFilepaths[CORE.Window.dropFileCount], event.drop.data);
 
                     CORE.Window.dropFileCount++;
                 }
                 else if (CORE.Window.dropFileCount < 1024)
                 {
                     CORE.Window.dropFilepaths[CORE.Window.dropFileCount] = (char *)RL_CALLOC(MAX_FILEPATH_LENGTH, sizeof(char));
-                    strcpy(CORE.Window.dropFilepaths[CORE.Window.dropFileCount], event.drop.file);
-                    SDL_free(event.drop.file);
+                    strcpy(CORE.Window.dropFilepaths[CORE.Window.dropFileCount], event.drop.data);
 
                     CORE.Window.dropFileCount++;
                 }
@@ -1092,43 +1140,37 @@ void PollInputEvents(void)
             } break;
 
             // Window events are also polled (Minimized, maximized, close...)
-            case SDL_WINDOWEVENT:
+            case SDL_EVENT_WINDOW_RESIZED:
+            case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
             {
-                switch (event.window.event)
-                {
-                    case SDL_WINDOWEVENT_RESIZED:
-                    case SDL_WINDOWEVENT_SIZE_CHANGED:
-                    {
-                        const int width = event.window.data1;
-                        const int height = event.window.data2;
-                        SetupViewport(width, height);
-                        CORE.Window.screen.width = width;
-                        CORE.Window.screen.height = height;
-                        CORE.Window.currentFbo.width = width;
-                        CORE.Window.currentFbo.height = height;
-                        CORE.Window.resizedLastFrame = true;
-                    } break;
-                    case SDL_WINDOWEVENT_ENTER:
-                    {
-                        CORE.Input.Mouse.cursorOnScreen = true;
-                    } break;
-                    case SDL_WINDOWEVENT_LEAVE:
-                    {
-                        CORE.Input.Mouse.cursorOnScreen = false;
-                    } break;
-                    case SDL_WINDOWEVENT_HIDDEN:
-                    case SDL_WINDOWEVENT_MINIMIZED:
-                    case SDL_WINDOWEVENT_FOCUS_LOST:
-                    case SDL_WINDOWEVENT_SHOWN:
-                    case SDL_WINDOWEVENT_FOCUS_GAINED:
-                    case SDL_WINDOWEVENT_MAXIMIZED:
-                    case SDL_WINDOWEVENT_RESTORED:
-                    default: break;
-                }
+                const int width = event.window.data1;
+                const int height = event.window.data2;
+                SetupViewport(width, height);
+                CORE.Window.screen.width = width;
+                CORE.Window.screen.height = height;
+                CORE.Window.currentFbo.width = width;
+                CORE.Window.currentFbo.height = height;
+                CORE.Window.resizedLastFrame = true;
             } break;
+            case SDL_EVENT_WINDOW_MOUSE_ENTER:
+            {
+                CORE.Input.Mouse.cursorOnScreen = true;
+            } break;
+            case SDL_EVENT_WINDOW_MOUSE_LEAVE:
+            {
+                CORE.Input.Mouse.cursorOnScreen = false;
+            } break;
+            case SDL_EVENT_WINDOW_HIDDEN:
+            case SDL_EVENT_WINDOW_MINIMIZED:
+            case SDL_EVENT_WINDOW_FOCUS_LOST:
+            case SDL_EVENT_WINDOW_SHOWN:
+            case SDL_EVENT_WINDOW_FOCUS_GAINED:
+            case SDL_EVENT_WINDOW_MAXIMIZED:
+            case SDL_EVENT_WINDOW_RESTORED:
+                break;
 
             // Keyboard events
-            case SDL_KEYDOWN:
+            case SDL_EVENT_KEY_DOWN:
             {
                 KeyboardKey key = ConvertScancodeToKey(event.key.keysym.scancode);
 
@@ -1152,13 +1194,13 @@ void PollInputEvents(void)
                 }
             } break;
 
-            case SDL_KEYUP:
+            case SDL_EVENT_KEY_UP:
             {
                 KeyboardKey key = ConvertScancodeToKey(event.key.keysym.scancode);
                 if (key != KEY_NULL) CORE.Input.Keyboard.currentKeyState[key] = 0;
             } break;
 
-            case SDL_TEXTINPUT:
+            case SDL_EVENT_TEXT_INPUT:
             {
                 // NOTE: event.text.text data comes an UTF-8 text sequence but we register codepoints (int)
 
@@ -1174,7 +1216,7 @@ void PollInputEvents(void)
             } break;
 
             // Check mouse events
-            case SDL_MOUSEBUTTONDOWN:
+            case SDL_EVENT_MOUSE_BUTTON_DOWN:
             {
                 // NOTE: SDL2 mouse button order is LEFT, MIDDLE, RIGHT, but raylib uses LEFT, RIGHT, MIDDLE like GLFW
                 //       The following conditions align SDL with raylib.h MouseButton enum order
@@ -1187,7 +1229,7 @@ void PollInputEvents(void)
 
                 touchAction = 1;
             } break;
-            case SDL_MOUSEBUTTONUP:
+            case SDL_EVENT_MOUSE_BUTTON_UP:
             {
                 // NOTE: SDL2 mouse button order is LEFT, MIDDLE, RIGHT, but raylib uses LEFT, RIGHT, MIDDLE like GLFW
                 //       The following conditions align SDL with raylib.h MouseButton enum order
@@ -1200,12 +1242,12 @@ void PollInputEvents(void)
 
                 touchAction = 0;
             } break;
-            case SDL_MOUSEWHEEL:
+            case SDL_EVENT_MOUSE_WHEEL:
             {
                 CORE.Input.Mouse.currentWheelMove.x = (float)event.wheel.x;
                 CORE.Input.Mouse.currentWheelMove.y = (float)event.wheel.y;
             } break;
-            case SDL_MOUSEMOTION:
+            case SDL_EVENT_MOUSE_MOTION:
             {
                 if (platform.cursorRelative)
                 {
@@ -1223,19 +1265,19 @@ void PollInputEvents(void)
                 touchAction = 2;
             } break;
 
-            case SDL_FINGERDOWN:
+            case SDL_EVENT_FINGER_DOWN:
             {
                 UpdateTouchPointsSDL(event.tfinger);
                 touchAction = 1;
                 realTouch = true;
             } break;
-            case SDL_FINGERUP:
+            case SDL_EVENT_FINGER_UP:
             {
                 UpdateTouchPointsSDL(event.tfinger);
                 touchAction = 0;
                 realTouch = true;
             } break;
-            case SDL_FINGERMOTION:
+            case SDL_EVENT_FINGER_MOTION:
             {
                 UpdateTouchPointsSDL(event.tfinger);
                 touchAction = 2;
@@ -1243,21 +1285,21 @@ void PollInputEvents(void)
             } break;
 
             // Check gamepad events
-            case SDL_JOYDEVICEADDED:
+            case SDL_EVENT_JOYSTICK_ADDED:
             {
                 int jid = event.jdevice.which;
 
                 if (!CORE.Input.Gamepad.ready[jid] && (jid < MAX_GAMEPADS))
                 {
-                    platform.gamepad[jid] = SDL_JoystickOpen(jid);
+                    platform.gamepad[jid] = SDL_OpenJoystick(jid);
 
                     if (platform.gamepad[jid])
                     {
                         CORE.Input.Gamepad.ready[jid] = true;
-                        CORE.Input.Gamepad.axisCount[jid] = SDL_JoystickNumAxes(platform.gamepad[jid]);
+                        CORE.Input.Gamepad.axisCount[jid] = SDL_GetNumJoystickAxes(platform.gamepad[jid]);
                         CORE.Input.Gamepad.axisState[jid][GAMEPAD_AXIS_LEFT_TRIGGER] = -1.0f;
                         CORE.Input.Gamepad.axisState[jid][GAMEPAD_AXIS_RIGHT_TRIGGER] = -1.0f;
-                        strncpy(CORE.Input.Gamepad.name[jid], SDL_JoystickName(platform.gamepad[jid]), 63);
+                        strncpy(CORE.Input.Gamepad.name[jid], SDL_GetJoystickName(platform.gamepad[jid]), 63);
                         CORE.Input.Gamepad.name[jid][63] = '\0';
                     }
                     else
@@ -1266,43 +1308,43 @@ void PollInputEvents(void)
                     }
                 }
             } break;
-            case SDL_JOYDEVICEREMOVED:
+            case SDL_EVENT_JOYSTICK_REMOVED:
             {
                 int jid = event.jdevice.which;
 
-                if (jid == SDL_JoystickInstanceID(platform.gamepad[jid]))
+                if (jid == SDL_GetJoystickInstanceID(platform.gamepad[jid]))
                 {
-                    SDL_JoystickClose(platform.gamepad[jid]);
-                    platform.gamepad[jid] = SDL_JoystickOpen(0);
+                    SDL_CloseJoystick(platform.gamepad[jid]);
+                    platform.gamepad[jid] = SDL_OpenJoystick(0);
                     CORE.Input.Gamepad.ready[jid] = false;
                     memset(CORE.Input.Gamepad.name[jid], 0, 64);
                 }
             } break;
-            case SDL_JOYBUTTONDOWN:
+            case SDL_EVENT_JOYSTICK_BUTTON_DOWN:
             {
                 int button = -1;
 
                 switch (event.jbutton.button)
                 {
-                    case SDL_CONTROLLER_BUTTON_Y: button = GAMEPAD_BUTTON_RIGHT_FACE_UP; break;
-                    case SDL_CONTROLLER_BUTTON_B: button = GAMEPAD_BUTTON_RIGHT_FACE_RIGHT; break;
-                    case SDL_CONTROLLER_BUTTON_A: button = GAMEPAD_BUTTON_RIGHT_FACE_DOWN; break;
-                    case SDL_CONTROLLER_BUTTON_X: button = GAMEPAD_BUTTON_RIGHT_FACE_LEFT; break;
+                    case SDL_GAMEPAD_BUTTON_NORTH: button = GAMEPAD_BUTTON_RIGHT_FACE_UP; break;
+                    case SDL_GAMEPAD_BUTTON_EAST: button = GAMEPAD_BUTTON_RIGHT_FACE_RIGHT; break;
+                    case SDL_GAMEPAD_BUTTON_SOUTH: button = GAMEPAD_BUTTON_RIGHT_FACE_DOWN; break;
+                    case SDL_GAMEPAD_BUTTON_WEST: button = GAMEPAD_BUTTON_RIGHT_FACE_LEFT; break;
 
-                    case SDL_CONTROLLER_BUTTON_LEFTSHOULDER: button = GAMEPAD_BUTTON_LEFT_TRIGGER_1; break;
-                    case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER: button = GAMEPAD_BUTTON_RIGHT_TRIGGER_1; break;
+                    case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: button = GAMEPAD_BUTTON_LEFT_TRIGGER_1; break;
+                    case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: button = GAMEPAD_BUTTON_RIGHT_TRIGGER_1; break;
 
-                    case SDL_CONTROLLER_BUTTON_BACK: button = GAMEPAD_BUTTON_MIDDLE_LEFT; break;
-                    case SDL_CONTROLLER_BUTTON_GUIDE: button = GAMEPAD_BUTTON_MIDDLE; break;
-                    case SDL_CONTROLLER_BUTTON_START: button = GAMEPAD_BUTTON_MIDDLE_RIGHT; break;
+                    case SDL_GAMEPAD_BUTTON_BACK: button = GAMEPAD_BUTTON_MIDDLE_LEFT; break;
+                    case SDL_GAMEPAD_BUTTON_GUIDE: button = GAMEPAD_BUTTON_MIDDLE; break;
+                    case SDL_GAMEPAD_BUTTON_START: button = GAMEPAD_BUTTON_MIDDLE_RIGHT; break;
 
-                    case SDL_CONTROLLER_BUTTON_DPAD_UP: button = GAMEPAD_BUTTON_LEFT_FACE_UP; break;
-                    case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: button = GAMEPAD_BUTTON_LEFT_FACE_RIGHT; break;
-                    case SDL_CONTROLLER_BUTTON_DPAD_DOWN: button = GAMEPAD_BUTTON_LEFT_FACE_DOWN; break;
-                    case SDL_CONTROLLER_BUTTON_DPAD_LEFT: button = GAMEPAD_BUTTON_LEFT_FACE_LEFT; break;
+                    case SDL_GAMEPAD_BUTTON_DPAD_UP: button = GAMEPAD_BUTTON_LEFT_FACE_UP; break;
+                    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: button = GAMEPAD_BUTTON_LEFT_FACE_RIGHT; break;
+                    case SDL_GAMEPAD_BUTTON_DPAD_DOWN: button = GAMEPAD_BUTTON_LEFT_FACE_DOWN; break;
+                    case SDL_GAMEPAD_BUTTON_DPAD_LEFT: button = GAMEPAD_BUTTON_LEFT_FACE_LEFT; break;
 
-                    case SDL_CONTROLLER_BUTTON_LEFTSTICK: button = GAMEPAD_BUTTON_LEFT_THUMB; break;
-                    case SDL_CONTROLLER_BUTTON_RIGHTSTICK: button = GAMEPAD_BUTTON_RIGHT_THUMB; break;
+                    case SDL_GAMEPAD_BUTTON_LEFT_STICK: button = GAMEPAD_BUTTON_LEFT_THUMB; break;
+                    case SDL_GAMEPAD_BUTTON_RIGHT_STICK: button = GAMEPAD_BUTTON_RIGHT_THUMB; break;
                     default: break;
                 }
 
@@ -1312,31 +1354,31 @@ void PollInputEvents(void)
                     CORE.Input.Gamepad.lastButtonPressed = button;
                 }
             } break;
-            case SDL_JOYBUTTONUP:
+            case SDL_EVENT_JOYSTICK_BUTTON_UP:
             {
                 int button = -1;
 
                 switch (event.jbutton.button)
                 {
-                    case SDL_CONTROLLER_BUTTON_Y: button = GAMEPAD_BUTTON_RIGHT_FACE_UP; break;
-                    case SDL_CONTROLLER_BUTTON_B: button = GAMEPAD_BUTTON_RIGHT_FACE_RIGHT; break;
-                    case SDL_CONTROLLER_BUTTON_A: button = GAMEPAD_BUTTON_RIGHT_FACE_DOWN; break;
-                    case SDL_CONTROLLER_BUTTON_X: button = GAMEPAD_BUTTON_RIGHT_FACE_LEFT; break;
+                    case SDL_GAMEPAD_BUTTON_NORTH: button = GAMEPAD_BUTTON_RIGHT_FACE_UP; break;
+                    case SDL_GAMEPAD_BUTTON_EAST: button = GAMEPAD_BUTTON_RIGHT_FACE_RIGHT; break;
+                    case SDL_GAMEPAD_BUTTON_SOUTH: button = GAMEPAD_BUTTON_RIGHT_FACE_DOWN; break;
+                    case SDL_GAMEPAD_BUTTON_WEST: button = GAMEPAD_BUTTON_RIGHT_FACE_LEFT; break;
 
-                    case SDL_CONTROLLER_BUTTON_LEFTSHOULDER: button = GAMEPAD_BUTTON_LEFT_TRIGGER_1; break;
-                    case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER: button = GAMEPAD_BUTTON_RIGHT_TRIGGER_1; break;
+                    case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: button = GAMEPAD_BUTTON_LEFT_TRIGGER_1; break;
+                    case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: button = GAMEPAD_BUTTON_RIGHT_TRIGGER_1; break;
 
-                    case SDL_CONTROLLER_BUTTON_BACK: button = GAMEPAD_BUTTON_MIDDLE_LEFT; break;
-                    case SDL_CONTROLLER_BUTTON_GUIDE: button = GAMEPAD_BUTTON_MIDDLE; break;
-                    case SDL_CONTROLLER_BUTTON_START: button = GAMEPAD_BUTTON_MIDDLE_RIGHT; break;
+                    case SDL_GAMEPAD_BUTTON_BACK: button = GAMEPAD_BUTTON_MIDDLE_LEFT; break;
+                    case SDL_GAMEPAD_BUTTON_GUIDE: button = GAMEPAD_BUTTON_MIDDLE; break;
+                    case SDL_GAMEPAD_BUTTON_START: button = GAMEPAD_BUTTON_MIDDLE_RIGHT; break;
 
-                    case SDL_CONTROLLER_BUTTON_DPAD_UP: button = GAMEPAD_BUTTON_LEFT_FACE_UP; break;
-                    case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: button = GAMEPAD_BUTTON_LEFT_FACE_RIGHT; break;
-                    case SDL_CONTROLLER_BUTTON_DPAD_DOWN: button = GAMEPAD_BUTTON_LEFT_FACE_DOWN; break;
-                    case SDL_CONTROLLER_BUTTON_DPAD_LEFT: button = GAMEPAD_BUTTON_LEFT_FACE_LEFT; break;
+                    case SDL_GAMEPAD_BUTTON_DPAD_UP: button = GAMEPAD_BUTTON_LEFT_FACE_UP; break;
+                    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: button = GAMEPAD_BUTTON_LEFT_FACE_RIGHT; break;
+                    case SDL_GAMEPAD_BUTTON_DPAD_DOWN: button = GAMEPAD_BUTTON_LEFT_FACE_DOWN; break;
+                    case SDL_GAMEPAD_BUTTON_DPAD_LEFT: button = GAMEPAD_BUTTON_LEFT_FACE_LEFT; break;
 
-                    case SDL_CONTROLLER_BUTTON_LEFTSTICK: button = GAMEPAD_BUTTON_LEFT_THUMB; break;
-                    case SDL_CONTROLLER_BUTTON_RIGHTSTICK: button = GAMEPAD_BUTTON_RIGHT_THUMB; break;
+                    case SDL_GAMEPAD_BUTTON_LEFT_STICK: button = GAMEPAD_BUTTON_LEFT_THUMB; break;
+                    case SDL_GAMEPAD_BUTTON_RIGHT_STICK: button = GAMEPAD_BUTTON_RIGHT_THUMB; break;
                     default: break;
                 }
 
@@ -1346,18 +1388,18 @@ void PollInputEvents(void)
                     if (CORE.Input.Gamepad.lastButtonPressed == button) CORE.Input.Gamepad.lastButtonPressed = 0;
                 }
             } break;
-            case SDL_JOYAXISMOTION:
+            case SDL_EVENT_JOYSTICK_AXIS_MOTION:
             {
                 int axis = -1;
 
                 switch (event.jaxis.axis)
                 {
-                    case SDL_CONTROLLER_AXIS_LEFTX: axis = GAMEPAD_AXIS_LEFT_X; break;
-                    case SDL_CONTROLLER_AXIS_LEFTY: axis = GAMEPAD_AXIS_LEFT_Y; break;
-                    case SDL_CONTROLLER_AXIS_RIGHTX: axis = GAMEPAD_AXIS_RIGHT_X; break;
-                    case SDL_CONTROLLER_AXIS_RIGHTY: axis = GAMEPAD_AXIS_RIGHT_Y; break;
-                    case SDL_CONTROLLER_AXIS_TRIGGERLEFT: axis = GAMEPAD_AXIS_LEFT_TRIGGER; break;
-                    case SDL_CONTROLLER_AXIS_TRIGGERRIGHT: axis = GAMEPAD_AXIS_RIGHT_TRIGGER; break;
+                    case SDL_GAMEPAD_AXIS_LEFTX: axis = GAMEPAD_AXIS_LEFT_X; break;
+                    case SDL_GAMEPAD_AXIS_LEFTY: axis = GAMEPAD_AXIS_LEFT_Y; break;
+                    case SDL_GAMEPAD_AXIS_RIGHTX: axis = GAMEPAD_AXIS_RIGHT_X; break;
+                    case SDL_GAMEPAD_AXIS_RIGHTY: axis = GAMEPAD_AXIS_RIGHT_Y; break;
+                    case SDL_GAMEPAD_AXIS_LEFT_TRIGGER: axis = GAMEPAD_AXIS_LEFT_TRIGGER; break;
+                    case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: axis = GAMEPAD_AXIS_RIGHT_TRIGGER; break;
                     default: break;
                 }
 
@@ -1423,13 +1465,12 @@ int InitPlatform(void)
 {
     // Initialize SDL internal global state, only required systems
     // NOTE: Not all systems need to be initialized, SDL_INIT_AUDIO is not required, managed by miniaudio
-    int result = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_EVENTS | SDL_INIT_GAMECONTROLLER);
+    int result = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_EVENTS | SDL_INIT_GAMEPAD);
     if (result < 0) { TRACELOG(LOG_WARNING, "SDL: Failed to initialize SDL"); return -1; }
 
     // Initialize graphic device: display/window and graphic context
     //----------------------------------------------------------------------------
     unsigned int flags = 0;
-    flags |= SDL_WINDOW_SHOWN;
     flags |= SDL_WINDOW_OPENGL;
     flags |= SDL_WINDOW_INPUT_FOCUS;
     flags |= SDL_WINDOW_MOUSE_FOCUS;
@@ -1457,7 +1498,7 @@ int InitPlatform(void)
     if ((CORE.Window.flags & FLAG_WINDOW_TOPMOST) > 0) flags |= SDL_WINDOW_ALWAYS_ON_TOP;
     if ((CORE.Window.flags & FLAG_WINDOW_MOUSE_PASSTHROUGH) > 0) flags &= ~SDL_WINDOW_MOUSE_CAPTURE;
 
-    if ((CORE.Window.flags & FLAG_WINDOW_HIGHDPI) > 0) flags |= SDL_WINDOW_ALLOW_HIGHDPI;
+    if ((CORE.Window.flags & FLAG_WINDOW_HIGHDPI) > 0) flags |= SDL_WINDOW_HIGH_PIXEL_DENSITY;
 
     //if ((CORE.Window.flags & FLAG_WINDOW_TRANSPARENT) > 0) flags |= SDL_WINDOW_TRANSPARENT;     // Alternative: SDL_GL_ALPHA_SIZE = 8
 
@@ -1499,11 +1540,6 @@ int InitPlatform(void)
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
     }
 
-    if (CORE.Window.flags & FLAG_VSYNC_HINT)
-    {
-        SDL_GL_SetSwapInterval(1);
-    }
-
     if (CORE.Window.flags & FLAG_MSAA_4X_HINT)
     {
         SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
@@ -1511,21 +1547,41 @@ int InitPlatform(void)
     }
 
     // Init window
-    platform.window = SDL_CreateWindow(CORE.Window.title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, CORE.Window.screen.width, CORE.Window.screen.height, flags);
+    platform.window = SDL_CreateWindow(CORE.Window.title, CORE.Window.screen.width, CORE.Window.screen.height, flags);
 
     // Init OpenGL context
     platform.glContext = SDL_GL_CreateContext(platform.window);
 
+    if ((CORE.Window.flags & FLAG_WINDOW_HIGHDPI) > 0)
+    {
+        Vector2 scale = GetWindowScaleDPI();
+        // Screen scaling matrix is required in case desired screen area is different from display area
+        CORE.Window.screenScale = MatrixScale(scale.x, scale.y, 1.0f);
+
+        // Mouse input scaling for the new screen size
+        SetMouseScale(scale.x, scale.y);
+    }
+
     // Check window and glContext have been initialized successfully
     if ((platform.window != NULL) && (platform.glContext != NULL))
     {
+        // Initially set VSync to off
+        int interval = SDL_GL_SetSwapInterval(0);
+
+        if (CORE.Window.flags & FLAG_VSYNC_HINT)
+        {
+            int interval = SDL_GL_SetSwapInterval(1);
+            if (interval < 0) {
+                TRACELOG(LOG_WARNING, "SDL: Failed to set VSync - %s", SDL_GetError());
+            }
+        }
+
         CORE.Window.ready = true;
 
-        SDL_DisplayMode displayMode = { 0 };
-        SDL_GetCurrentDisplayMode(GetCurrentMonitor(), &displayMode);
+        const SDL_DisplayMode *displayMode = SDL_GetCurrentDisplayMode(GetCurrentMonitor());
 
-        CORE.Window.display.width = displayMode.w;
-        CORE.Window.display.height = displayMode.h;
+        CORE.Window.display.width = displayMode->w;
+        CORE.Window.display.height = displayMode->h;
 
         CORE.Window.render.width = CORE.Window.screen.width;
         CORE.Window.render.height = CORE.Window.screen.height;
@@ -1552,16 +1608,19 @@ int InitPlatform(void)
     // Initialize input events system
     //----------------------------------------------------------------------------
     // Initialize gamepads
-    for (int i = 0; (i < SDL_NumJoysticks()) && (i < MAX_GAMEPADS); i++)
+    int count = 0;
+    SDL_JoystickID *joysticks = SDL_GetJoysticks(&count);
+    SDL_free(joysticks);
+    for (int i = 0; (i < count) && (i < MAX_GAMEPADS); i++)
     {
-        platform.gamepad[i] = SDL_JoystickOpen(i);
+        platform.gamepad[i] = SDL_OpenJoystick(i);
         if (platform.gamepad[i])
         {
             CORE.Input.Gamepad.ready[i] = true;
-            CORE.Input.Gamepad.axisCount[i] = SDL_JoystickNumAxes(platform.gamepad[i]);
+            CORE.Input.Gamepad.axisCount[i] = SDL_GetNumJoystickAxes(platform.gamepad[i]);
             CORE.Input.Gamepad.axisState[i][GAMEPAD_AXIS_LEFT_TRIGGER] = -1.0f;
             CORE.Input.Gamepad.axisState[i][GAMEPAD_AXIS_RIGHT_TRIGGER] = -1.0f;
-            strncpy(CORE.Input.Gamepad.name[i], SDL_JoystickName(platform.gamepad[i]), 63);
+            strncpy(CORE.Input.Gamepad.name[i], SDL_GetJoystickName(platform.gamepad[i]), 63);
             CORE.Input.Gamepad.name[i][63] = '\0';
         }
         else TRACELOG(LOG_WARNING, "PLATFORM: Unable to open game controller [ERROR: %s]", SDL_GetError());
@@ -1572,17 +1631,15 @@ int InitPlatform(void)
     //       Due to the way PollInputEvents() and rgestures.h are currently implemented, setting this won't break SUPPORT_MOUSE_GESTURES
     SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
 
-    SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+    SDL_SetEventEnabled(SDL_EVENT_DROP_FILE, 1);
     //----------------------------------------------------------------------------
 
     // Initialize timing system
     //----------------------------------------------------------------------------
-    // NOTE: No need to call InitTimer(), let SDL manage it internally
-    CORE.Time.previous = GetTime();     // Get time as double
 
-    #if defined(_WIN32) && defined(SUPPORT_WINMM_HIGHRES_TIMER) && !defined(SUPPORT_BUSY_WAIT_LOOP)
-    SDL_SetHint(SDL_HINT_TIMER_RESOLUTION, "1");     // SDL equivalent of timeBeginPeriod() and timeEndPeriod()
-    #endif
+    CORE.Time.base = SDL_GetPerformanceCounter();
+
+    CORE.Time.previous = GetTime();     // Get time as double
     //----------------------------------------------------------------------------
 
     // Initialize storage system
@@ -1598,7 +1655,7 @@ int InitPlatform(void)
 // Close platform
 void ClosePlatform(void)
 {
-    SDL_FreeCursor(platform.cursor); // Free cursor
+    SDL_DestroyCursor(platform.cursor); // Free cursor
     SDL_GL_DeleteContext(platform.glContext); // Deinitialize OpenGL context
     SDL_DestroyWindow(platform.window);
     SDL_Quit(); // Deinitialize SDL internal global state
@@ -1613,4 +1670,31 @@ static KeyboardKey ConvertScancodeToKey(SDL_Scancode sdlScancode)
     }
     return KEY_NULL; // No equivalent key in Raylib
 }
+
+// Migration Functions from SDL2 to SDL3
+//----------------------------------------------------------------------------
+
+// SDL_surface.h
+SDL_Surface *SDL_CreateRGBSurface(Uint32 flags, int width, int height, int depth, Uint32 Rmask, Uint32 Gmask, Uint32 Bmask, Uint32 Amask)
+{
+    return SDL_CreateSurface(width, height,
+            SDL_GetPixelFormatEnumForMasks(depth, Rmask, Gmask, Bmask, Amask));
+}
+
+SDL_Surface *SDL_CreateRGBSurfaceWithFormat(Uint32 flags, int width, int height, int depth, Uint32 format)
+{
+    return SDL_CreateSurface(width, height, format);
+}
+
+SDL_Surface *SDL_CreateRGBSurfaceFrom(void *pixels, int width, int height, int depth, int pitch, Uint32 Rmask, Uint32 Gmask, Uint32 Bmask, Uint32 Amask)
+{
+    return SDL_CreateSurfaceFrom(pixels, width, height, pitch,
+            SDL_GetPixelFormatEnumForMasks(depth, Rmask, Gmask, Bmask, Amask));
+}
+
+SDL_Surface *SDL_CreateRGBSurfaceWithFormatFrom(void *pixels, int width, int height, int depth, int pitch, Uint32 format)
+{
+    return SDL_CreateSurfaceFrom(pixels, width, height, pitch, format);
+}
+
 // EOF

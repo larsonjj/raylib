@@ -658,15 +658,6 @@ void InitWindow(int width, int height, const char *title)
     SetShapesTexture(texture, (Rectangle){ 0.0f, 0.0f, 1.0f, 1.0f });    // WARNING: Module required: rshapes
     #endif
 #endif
-#if defined(SUPPORT_MODULE_RTEXT) && defined(SUPPORT_DEFAULT_FONT)
-    if ((CORE.Window.flags & FLAG_WINDOW_HIGHDPI) > 0)
-    {
-        // Set default font texture filter for HighDPI (blurry)
-        // RL_TEXTURE_FILTER_LINEAR - tex filter: BILINEAR, no mipmaps
-        rlTextureParameters(GetFontDefault().texture.id, RL_TEXTURE_MIN_FILTER, RL_TEXTURE_FILTER_LINEAR);
-        rlTextureParameters(GetFontDefault().texture.id, RL_TEXTURE_MAG_FILTER, RL_TEXTURE_FILTER_LINEAR);
-    }
-#endif
 
     CORE.Time.frameCounter = 0;
     CORE.Window.shouldClose = false;
@@ -753,20 +744,30 @@ bool IsWindowState(unsigned int flag)
 // Get current screen width
 int GetScreenWidth(void)
 {
+#if defined(PLATFORM_DESKTOP_SDL)
+    Vector2 scale = GetWindowScaleDPI();
+    return CORE.Window.screen.width / scale.x;
+#else
     return CORE.Window.screen.width;
+#endif
 }
 
 // Get current screen height
 int GetScreenHeight(void)
 {
+#if defined(PLATFORM_DESKTOP_SDL)
+    Vector2 scale = GetWindowScaleDPI();
+    return CORE.Window.screen.height / scale.y;
+#else
     return CORE.Window.screen.height;
+#endif
 }
 
 // Get current render width which is equal to screen width*dpi scale
 int GetRenderWidth(void)
 {
     int width = 0;
-#if defined(__APPLE__)
+#if defined(__APPLE__) && !defined(PLATFORM_DESKTOP_SDL)
     Vector2 scale = GetWindowScaleDPI();
     width = (int)((float)CORE.Window.render.width*scale.x);
 #else
@@ -779,7 +780,7 @@ int GetRenderWidth(void)
 int GetRenderHeight(void)
 {
     int height = 0;
-#if defined(__APPLE__)
+#if defined(__APPLE__) && !defined(PLATFORM_DESKTOP_SDL)
     Vector2 scale = GetWindowScaleDPI();
     height = (int)((float)CORE.Window.render.height*scale.y);
 #else
@@ -1117,7 +1118,7 @@ void BeginScissorMode(int x, int y, int width, int height)
 
     rlEnableScissorTest();
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) && !defined(PLATFORM_DESKTOP_SDL)
     if (!CORE.Window.usingFbo)
     {
         Vector2 scale = GetWindowScaleDPI();
@@ -3116,7 +3117,7 @@ void SetupViewport(int width, int height)
     // Set viewport width and height
     // NOTE: We consider render size (scaled) and offset in case black bars are required and
     // render area does not match full display area (this situation is only applicable on fullscreen mode)
-#if defined(__APPLE__)
+#if defined(__APPLE__) && !defined(PLATFORM_DESKTOP_SDL)
     Vector2 scale = GetWindowScaleDPI();
     rlViewport(CORE.Window.renderOffset.x/2*scale.x, CORE.Window.renderOffset.y/2*scale.y, (CORE.Window.render.width)*scale.x, (CORE.Window.render.height)*scale.y);
 #else
